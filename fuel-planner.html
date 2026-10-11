@@ -154,6 +154,9 @@ function buildForm(){
   var at=Date.now();if(!$('lt').hidden&&$('lt').value)at=new Date($('lt').value).getTime();
   if(isNaN(at)||at>Date.now()+3e5){msg('That time is in the future','err');return}
   if(at+7*DAY<=Date.now()){msg('That lock has already expired','err');return}
+  var ex=activeLocks().filter(function(k){return k.id===slug(ME)})[0];
+  if(ex){var t=ex.at+7*DAY-Date.now(),dd=Math.floor(t/DAY),lt=dd>0?dd+(dd===1?' day':' days'):left(t);
+   if(!confirm('You already have a '+ex.price.toFixed(1)+'c lock with '+lt+' left. Replace it?'))return}
   var b=$('lk');b.disabled=true;
   putLock(ME,v,at,false).then(function(){$('lp').value='';$('lt').hidden=true;msg('Saved ✓ — '+v.toFixed(1)+'c locked','ok');return getLocks()}).catch(function(){msg('Could not save. Check your connection and try again.','err')}).then(function(){b.disabled=false})};
 }
