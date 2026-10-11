@@ -1,0 +1,45 @@
+name: Find stations 2
+on: workflow_dispatch
+jobs:
+  discover:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Search
+        env:
+          FUEL_API_KEY: ${{ secrets.FUEL_API_KEY }}
+          FUEL_API_SECRET: ${{ secrets.FUEL_API_SECRET }}
+        run: |
+          node > out.txt 2>&1 <<'EOF'
+          (async () => {
+            const key = process.env.FUEL_API_KEY, secret = process.env.FUEL_API_SECRET;
+            const basic = Buffer.from(key + ':' + secret).toString('base64');
+            const tr = await fetch('https://api.onegov.nsw.gov.au/oauth/client_credential/accesstoken?grant_type=client_credentials', { headers: { Authorization: 'Basic ' + basic } });
+            const token = (await tr.json()).access_token;
+            const d = new Date(), p = n => String(n).padStart(2, '0');
+            const h = d.getUTCHours() % 12 || 12, ap = d.getUTCHours() < 12 ? 'AM' : 'PM';
+            const ts = `${p(d.getUTCDate())}/${p(d.getUTCMonth()+1)}/${d.getUTCFullYear()} ${p(h)}:${p(d.getUTCMinutes())}:${p(d.getUTCSeconds())} ${ap}`;
+            const base = { Authorization: 'Bearer ' + token, apikey: key, transactionid: crypto.randomUUID(), requesttimestamp: ts };
+            const show = async (label, r) => {
+              const t = await r.text();
+              console.log(label, 'status', r.status, 'length', t.length, 'type', r.headers.get('content-type'));
+              if (t.length < 400) console.log('body:', t);
+              try { return JSON.parse(t); } catch (e) { return null; }
+            };
+            const n = await show('NEARBY', await fetch('https://api.onegov.nsw.gov.au/FuelPriceCheck/v1/fuel/prices/nearby', {
+              method: 'POST', headers: { ...base, 'Content-Type': 'application/json' },
+              body: JSON.stringify({ fueltype: 'U91', namedlocation: '2145', latitude: '-33.807', longitude: '150.971', radius: '6', brand: ['SelectAll'], sortby: 'price', sortascending: 'true' })
+            }));
+            const a = await show('ALL', await fetch('https://api.onegov.nsw.gov.au/FuelPriceCheck/v1/fuel/prices', { headers: base }));
+            const src = (n && n.stations && n.stations.length) ? n : a;
+            if (!src || !src.stations) { console.log('No station data'); return; }
+            const price = {}; (src.prices || []).forEach(x => { if (x.fueltype === 'U91') price[x.stationcode] = x.price; });
+            src.stations.filter(s => /Wentworthville|Pendle Hill|Mays Hill/i.test(s.address)).forEach(s =>
+              console.log([s.code, s.brand, s.name, s.address, price[s.code] != null ? price[s.code] + 'c' : 'no U91'].join(' | ')));
+          })();
+          EOF
+      - name: Show result
+        if: always()
+        run: |
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          cat out.txt >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
