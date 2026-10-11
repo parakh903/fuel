@@ -13,19 +13,27 @@ h1{font-size:20px;margin:4px 0 2px}h2{font-size:14px;margin:0 0 10px;color:var(-
 .sub{color:var(--mut);font-size:13px;margin:0 0 14px}.sub.stale{color:var(--bd)}
 .card{background:var(--card);border:1px solid var(--ln);border-radius:14px;padding:14px;margin-bottom:14px}
 .rec b{font-size:22px;display:block}.rec.go{background:var(--ab);border-color:var(--ac)}.rec.go b{color:var(--ac)}.rec.wait b{color:var(--bd)}.rec.mid b{color:var(--wn)}
-.rec p{margin:6px 0 0;font-size:14px;color:var(--mut)}
+.rec p{margin:6px 0 0;font-size:14px;color:var(--mut)}.rec p.lkp{color:var(--tx);font-weight:600}
 .tr{display:inline-block;margin-top:8px;font-size:13px;font-weight:600;padding:3px 10px;border-radius:99px;border:1px solid var(--ln);color:var(--tx)}
 .tr.up{color:var(--bd);border-color:var(--bd)}.tr.dn{color:var(--ac);border-color:var(--ac)}
 .row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 0;border-top:1px solid var(--ln)}
 .row:first-of-type{border-top:0}.nm{flex:1;min-width:0}.nm small{display:block;color:var(--mut);font-size:12px}
 .pr{font-weight:700;font-size:18px;white-space:nowrap;text-align:right}.best .pr{color:var(--ac)}
 .pr small{display:block;font-size:11px;font-weight:600}.pr .u{color:var(--bd)}.pr .d{color:var(--ac)}
-label.chk{display:flex;gap:8px;align-items:center;font-size:14px;margin:8px 0 10px}
-label.chk input{width:20px;height:20px}
+label.chk{display:flex;gap:8px;align-items:flex-start;font-size:14px;margin:8px 0 10px}
+label.chk input{width:20px;height:20px;flex:none;margin-top:1px}
 button{font:inherit;font-weight:600;border:0;border-radius:12px;padding:13px;width:100%;background:var(--ac);color:#fff;margin-top:8px}
+button:disabled{opacity:.5}
 .note{font-size:12px;color:var(--mut);margin:8px 0 0}
-svg.sp{width:100%;height:64px;display:block}
-.sp path{fill:none;stroke:var(--ac);stroke-width:2;stroke-linejoin:round;stroke-linecap:round}.sp .z{fill:var(--ab);opacity:.8}.sp circle{fill:var(--ac)}
+input.t{font:inherit;font-size:16px;width:100%;padding:11px;border:1px solid var(--ln);border-radius:10px;background:var(--bg);color:var(--tx)}
+.lr{display:flex;gap:8px;align-items:stretch}.lr button{width:auto;margin:0;padding:0 20px}
+.mini{width:auto;margin:0;padding:6px 10px;font-size:12px;background:var(--bg);color:var(--tx);border:1px solid var(--ln)}
+a.lnk{color:var(--ac);font-size:13px;text-decoration:underline;cursor:pointer}
+.msg{font-size:13px;margin:6px 0 0;min-height:1em}.msg.err{color:var(--bd)}.msg.ok{color:var(--ac)}
+.who{font-size:14px;margin:0 0 8px}
+.seg{display:flex;gap:6px;margin-bottom:8px}.seg button{width:auto;margin:0;padding:6px 14px;background:var(--bg);color:var(--tx);border:1px solid var(--ln);font-size:13px}.seg button.on{background:var(--ac);color:#fff;border-color:var(--ac)}
+svg.ch{width:100%;height:auto;display:block}.ch .gl{stroke:var(--ln);stroke-width:1}.ch .tx{fill:var(--mut);font-size:9px}.ch path{fill:none;stroke-width:1.8;stroke-linejoin:round;stroke-linecap:round}
+.lg{display:grid;grid-template-columns:1fr 1fr;gap:8px 10px;margin-top:10px}.lgi{font-size:12px;display:flex;gap:6px;align-items:center;cursor:pointer}.lgi.off{opacity:.35}.lgi i{width:10px;height:10px;border-radius:50%;flex:none}.lgi span{flex:1;min-width:0}.lgi b{font-weight:700}
 </style></head><body><main>
 <h1>⛽ Fuel Planner</h1>
 <p class="sub" id="stamp">Loading prices…</p>
@@ -33,27 +41,40 @@ svg.sp{width:100%;height:64px;display:block}
 <div class="card rec" id="rec"></div>
 
 <div class="card"><h2>Cheapest now</h2><div id="rank"></div>
-<label class="chk"><input type="checkbox" id="dk"> I have a Woolworths 4c docket (Ampol Foodary only)</label>
+<label class="chk"><input type="checkbox" id="dk"> <span>I have an active Woolworths 4c voucher<br><small style="color:var(--mut)">Spend $30+ at Woolworths, then scan your Rewards card within 28 days (Ampol Foodary only)</small></span></label>
 <button id="share">Share to WhatsApp</button></div>
 
-<div class="card" id="trend" hidden><h2>Cheapest price, last 14 days</h2><div id="spark"></div><p class="note" id="range"></p></div>
+<div class="card"><h2>7-Eleven locks</h2><div id="locks"></div><div id="lf"></div><p class="msg" id="lmsg"></p></div>
+
+<div class="card" id="trend" hidden><h2>Price history</h2>
+<div class="seg" id="seg"><button data-r="7">7d</button><button data-r="30" class="on">30d</button><button data-r="90">90d</button></div>
+<div id="chart"></div><div class="lg" id="lg"></div><p class="note">Tap a station to show or hide its line.</p></div>
 </main>
 <script>
+var FB={p:'fuel-planner-758f2',k:'AIzaSyDzcx4XzPN0FQOrYpgjKsX1Y693xBPiUig'};
+var LAPI='https://firestore.googleapis.com/v1/projects/'+FB.p+'/databases/(default)/documents/locks';
 var S=[
-{c:'1582',n:'APW Wentworthville',a:'449 Great Western Hwy',w:0},
-{c:'2442',n:'Ampol Foodary Wentworthville',a:'313 Great Western Hwy',w:1},
-{c:'833',n:'Ampol Foodary Pendle Hill',a:'602-606 Great Western Hwy',w:1},
-{c:'128',n:'7-Eleven Pendle Hill',a:'217 Wentworth Ave',w:0},
-{c:'1752',n:'bp Truckstop Mays Hill',a:'149 Great Western Hwy',w:0},
-{c:'20021',n:'Speedway Wentworthville',a:'57 Station St',w:0}];
-var DAY=864e5,HR=36e5,H=[],UPD=null,D=0,$=function(i){return document.getElementById(i)};
-try{D=localStorage.getItem('fp_docket')==='1'?1:0}catch(e){}
+{c:'1582',n:'APW Wentworthville',sn:'APW',a:'449 Great Western Hwy',w:0,col:'#0b7a4b'},
+{c:'2442',n:'Ampol Foodary Wentworthville',sn:'Ampol Wenty',a:'313 Great Western Hwy',w:1,col:'#1d6fdc'},
+{c:'833',n:'Ampol Foodary Pendle Hill',sn:'Ampol P. Hill',a:'602-606 Great Western Hwy',w:1,col:'#7048e8'},
+{c:'128',n:'7-Eleven Pendle Hill',sn:'7-Eleven',a:'217 Wentworth Ave',w:0,col:'#d9480f'},
+{c:'1752',n:'bp Truckstop Mays Hill',sn:'bp Mays Hill',a:'149 Great Western Hwy',w:0,col:'#c2255c'},
+{c:'20021',n:'Speedway Wentworthville',sn:'Speedway',a:'57 Station St',w:0,col:'#868e96'}];
+var DAY=864e5,HR=36e5,H=[],UPD=null,D=0,L=[],LERR=0,ME='',RG=30,HID={},$=function(i){return document.getElementById(i)};
+try{D=localStorage.getItem('fp_docket')==='1'?1:0;ME=localStorage.getItem('fp_who')||''}catch(e){}
 function cheap(x){var m=1e9;for(var k in x.p)if(x.p[k]<m)m=x.p[k];return m}
 function last(){return H[H.length-1]}
 function eff(s,p){return p-(D&&s.w?4:0)}
-function ranked(){var l=last();if(!l)return[];return S.filter(function(s){return l.p[s.c]>0}).map(function(s){return{s:s,p:l.p[s.c],e:eff(s,l.p[s.c])}}).sort(function(a,b){return a.e-b.e})}
+function left(ms){var d=Math.floor(ms/DAY),h=Math.floor(ms%DAY/HR),m=Math.floor(ms%HR/6e4);return d>0?d+'d '+h+'h':h+'h '+m+'m'}
+function activeLocks(){var n=Date.now();return L.filter(function(k){return !k.used&&k.at+7*DAY>n}).sort(function(a,b){return a.price-b.price})}
+function ranked(){
+ var l=last(),r=[];
+ if(l)S.forEach(function(s){if(l.p[s.c]>0)r.push({s:s,p:l.p[s.c],e:eff(s,l.p[s.c])})});
+ var pump=l&&l.p['128'];
+ activeLocks().forEach(function(k){if(!pump||k.price<pump)r.push({s:{n:'7-Eleven Pendle Hill · '+k.who+"'s lock",a:'',w:0,lk:k},p:k.price,e:k.price})});
+ return r.sort(function(a,b){return a.e-b.e})}
 function ago(t){var m=Math.round((Date.now()-new Date(t))/6e4);if(m<2)return'just now';if(m<90)return m+' min ago';var h=Math.round(m/60);return h<36?h+' h ago':Math.round(h/24)+' days ago'}
-function ref(h){var n=Date.now(),b=null,bd=1e18;H.forEach(function(x){var a=n-new Date(x.t);if(a>=18*HR&&a<=30*HR){var d=Math.abs(a-DAY);if(d<bd){bd=d;b=x}}});return b}
+function ref(){var n=Date.now(),b=null,bd=1e18;H.forEach(function(x){var a=n-new Date(x.t);if(a>=18*HR&&a<=30*HR){var d=Math.abs(a-DAY);if(d<bd){bd=d;b=x}}});return b}
 function days(){if(!H.length)return 0;return Math.floor((new Date(H[H.length-1].t)-new Date(H[0].t))/DAY)+1}
 function trend(){var r=ref(),l=last();if(!r||!l)return null;return cheap(l)-cheap(r)}
 function trendTxt(d){if(d===null)return'';var a=Math.abs(d).toFixed(1);if(d>=1.5)return'▲ Rising +'+a+'c vs yesterday';if(d<=-1.5)return'▼ Falling −'+a+'c vs yesterday';return'► Steady vs yesterday'}
@@ -71,38 +92,93 @@ function advice(){
  if(fall)return['wait','Wait','Mid-range and still falling. A lower price is likely soon.'+tail,t];
  return['mid','Mid-range',(rise?'Mid-range and rising. Fill soon if you need fuel in the next few days.':'Mid-range and steady. Fill only if you need to.')+tail,t];
 }
-function spark(){
- var cut=Date.now()-14*DAY,p=H.filter(function(x){return new Date(x.t)>=cut});
- if(p.length<4||days()<3){$('trend').hidden=true;return}
- var v=p.map(cheap),mn=Math.min.apply(0,v),mx=Math.max.apply(0,v),sp=Math.max(mx-mn,1),t0=new Date(p[0].t).getTime(),t1=new Date(p[p.length-1].t).getTime()||1,W=300,Hh=60,pad=6,d='',x,y;
- p.forEach(function(q,i){x=(new Date(q.t).getTime()-t0)/Math.max(t1-t0,1)*W;y=pad+(1-(v[i]-mn)/sp)*(Hh-2*pad);d+=(i?'L':'M')+x.toFixed(1)+' '+y.toFixed(1)});
- var zy=pad+(1-.25)*(Hh-2*pad);
- $('spark').innerHTML='<svg class="sp" viewBox="0 0 '+W+' '+Hh+'" preserveAspectRatio="none"><rect class="z" x="0" y="'+zy.toFixed(1)+'" width="'+W+'" height="'+(Hh-pad-zy).toFixed(1)+'"/><path d="'+d+'"/></svg>';
- $('range').textContent='Low '+mn.toFixed(1)+'c · High '+mx.toFixed(1)+'c · shaded = buy zone (bottom 25%)';
+function lockLine(r){
+ var al=activeLocks();if(!al.length)return'';
+ var best=al[0],m=r.filter(function(x){return !x.s.lk})[0],n=Date.now(),s='';
+ if(!m||best.price<=m.e)s='Use '+best.who+"'s 7-Eleven lock ("+best.price.toFixed(1)+'c, '+left(best.at+7*DAY-n)+' left). It beats the market.';
+ else s='The market is cheaper than your best lock ('+best.who+', '+best.price.toFixed(1)+'c) by '+(best.price-m.e).toFixed(1)+'c.';
+ al.forEach(function(k){var t=k.at+7*DAY-n;if(t<36*HR)s+=' ⏳ '+k.who+"'s lock ("+k.price.toFixed(1)+'c) expires in '+left(t)+'.'});
+ return s}
+function renderChart(){
+ var cut=Date.now()-RG*DAY,p=H.filter(function(x){return new Date(x.t)>=cut});
+ if(p.length<2){$('trend').hidden=true;return}
  $('trend').hidden=false;
+ var vs=[];S.forEach(function(s){if(!HID[s.c])p.forEach(function(q){if(q.p[s.c]>0)vs.push(q.p[s.c])})});
+ var W=320,Hh=180,pl=32,pr=6,pt=8,pb=20,t0=+new Date(p[0].t),t1=+new Date(p[p.length-1].t),dt=Math.max(t1-t0,1),svg='';
+ var mn=vs.length?Math.floor(Math.min.apply(0,vs)-1):200,mx=vs.length?Math.ceil(Math.max.apply(0,vs)+1):260;if(mx-mn<4)mx=mn+4;
+ var X=function(t){return pl+(t-t0)/dt*(W-pl-pr)},Y=function(v){return pt+(1-(v-mn)/(mx-mn))*(Hh-pt-pb)};
+ for(var i=0;i<4;i++){var v=mn+i*(mx-mn)/3,y=Y(v).toFixed(1);svg+='<line class="gl" x1="'+pl+'" x2="'+(W-pr)+'" y1="'+y+'" y2="'+y+'"/><text class="tx" x="'+(pl-4)+'" y="'+(+y+3)+'" text-anchor="end">'+v.toFixed(0)+'</text>'}
+ var fd=function(t){return new Date(t).toLocaleDateString('en-AU',{day:'numeric',month:'short'})};
+ svg+='<text class="tx" x="'+pl+'" y="'+(Hh-5)+'">'+fd(t0)+'</text><text class="tx" x="'+(W-pr)+'" y="'+(Hh-5)+'" text-anchor="end">'+fd(t1)+'</text>';
+ S.forEach(function(s){if(HID[s.c])return;var d='',k=0;p.forEach(function(q){var v=q.p[s.c];if(!(v>0))return;d+=(k++?'L':'M')+X(+new Date(q.t)).toFixed(1)+' '+Y(v).toFixed(1)});if(d)svg+='<path d="'+d+'" stroke="'+s.col+'"/>'});
+ $('chart').innerHTML='<svg class="ch" viewBox="0 0 '+W+' '+Hh+'" role="img" aria-label="Price history">'+svg+'</svg>';
+ var l=last(),h='';S.forEach(function(s){h+='<div class="lgi'+(HID[s.c]?' off':'')+'" data-c="'+s.c+'"><i style="background:'+s.col+'"></i><span>'+s.sn+'</span><b>'+(l&&l.p[s.c]?l.p[s.c].toFixed(1):'–')+'</b></div>'});
+ $('lg').innerHTML=h;
+}
+function renderLocks(){
+ var al=activeLocks(),l=last(),pump=l&&l.p['128'],h='',n=Date.now();
+ if(LERR)h='<p class="note">Locks are unavailable right now (offline?). Prices above still work.</p>';
+ else if(!al.length)h='<p class="note">No active locks. Add yours below after you lock a price in the 7-Eleven app.</p>';
+ al.forEach(function(k,i){
+  var when=new Date(k.at).toLocaleString('en-AU',{weekday:'short',day:'numeric',month:'short',hour:'numeric',minute:'2-digit'});
+  h+='<div class="row'+(i?'':' best')+'"><div class="nm">'+k.who+'<small>Locked '+when+' · '+left(k.at+7*DAY-n)+' left'+(pump&&k.price>=pump?' · pump cheaper today':'')+'</small></div><div class="pr">'+k.price.toFixed(1)+'</div><button class="mini" data-used="'+k.id+'">Used</button></div>'});
+ $('locks').innerHTML=h;
 }
 function render(){
  $('dk').checked=!!D;
- var st=$('stamp'),l=last();
+ var st=$('stamp');
  if(UPD){var stale=Date.now()-new Date(UPD)>9*HR;st.className='sub'+(stale?' stale':'');st.textContent='Unleaded 91 · Wentworthville area · updated '+ago(UPD)+(stale?' (may be out of date)':'')}
  else{st.className='sub';st.textContent='Unleaded 91 · Wentworthville area · no data yet'}
- var a=advice();$('rec').className='card rec '+a[0];
- $('rec').innerHTML='<b>'+a[1]+'</b><p>'+a[2]+'</p>'+(a[3]!==null&&a[3]!==undefined?'<span class="tr '+(a[3]>=1.5?'up':a[3]<=-1.5?'dn':'')+'">'+trendTxt(a[3])+'</span>':'');
- var r=ranked(),h='',rf=ref();
+ var r=ranked(),a=advice(),ll=lockLine(r);$('rec').className='card rec '+a[0];
+ $('rec').innerHTML='<b>'+a[1]+'</b><p>'+a[2]+'</p>'+(ll?'<p class="lkp">'+ll+'</p>':'')+(a[3]!==null&&a[3]!==undefined?'<span class="tr '+(a[3]>=1.5?'up':a[3]<=-1.5?'dn':'')+'">'+trendTxt(a[3])+'</span>':'');
+ var h='',rf=ref();
  if(!r.length)h='<p class="note">No prices yet.</p>';
  r.forEach(function(x,i){
-  var ch='';if(rf&&rf.p[x.s.c]){var d=x.p-rf.p[x.s.c];if(Math.abs(d)>=0.5)ch='<small class="'+(d>0?'u':'d')+'">'+(d>0?'▲ ':'▼ ')+Math.abs(d).toFixed(1)+'</small>'}
-  h+='<div class="row'+(i?'':' best')+'"><div class="nm">'+x.s.n+'<small>'+(D&&x.s.w?x.p.toFixed(1)+' − 4c docket':x.s.a)+'</small></div><div class="pr">'+x.e.toFixed(1)+ch+'</div></div>'});
+  var ch='';if(!x.s.lk&&rf&&rf.p[x.s.c]){var d=x.p-rf.p[x.s.c];if(Math.abs(d)>=0.5)ch='<small class="'+(d>0?'u':'d')+'">'+(d>0?'▲ ':'▼ ')+Math.abs(d).toFixed(1)+'</small>'}
+  var sub=x.s.lk?'Lock · '+left(x.s.lk.at+7*DAY-Date.now())+' left':(D&&x.s.w?x.p.toFixed(1)+' − 4c voucher':x.s.a);
+  h+='<div class="row'+(i?'':' best')+'"><div class="nm">'+x.s.n+'<small>'+sub+'</small></div><div class="pr">'+x.e.toFixed(1)+ch+'</div></div>'});
  if(r.length>1)h+='<p class="note">Cheapest saves about $'+((r[r.length-1].e-r[0].e)*0.4).toFixed(2)+' on a 40 L fill vs the dearest of these.</p>';
- $('rank').innerHTML=h;spark();
+ $('rank').innerHTML=h;renderLocks();renderChart();
 }
+function buildForm(){
+ var f=$('lf');
+ if(!ME){f.innerHTML='<div class="lr"><input class="t" id="nm" type="text" maxlength="20" autocomplete="given-name" placeholder="Your name (first time only)"><button id="nmb">Save</button></div>';
+  $('nmb').onclick=function(){var v=$('nm').value.replace(/\s+/g,' ').trim();if(!v){msg('Type your name first','err');return}
+   ME=v.charAt(0).toUpperCase()+v.slice(1);try{localStorage.setItem('fp_who',ME)}catch(e){}msg('');buildForm()};return}
+ f.innerHTML='<p class="who">Locking as <b></b> · <a class="lnk" id="nu">Not you?</a></p><div class="lr"><input class="t" id="lp" type="number" step="0.1" inputmode="decimal" placeholder="Locked price, c/L (e.g. 229.9)"><button id="lk">Lock</button></div><p class="who" style="margin:8px 0 0"><a class="lnk" id="et">Locked earlier? Change time</a></p><input class="t" id="lt" type="datetime-local" hidden style="margin-top:8px">';
+ f.querySelector('b').textContent=ME;
+ $('nu').onclick=function(){ME='';try{localStorage.removeItem('fp_who')}catch(e){}msg('');buildForm()};
+ $('et').onclick=function(){var t=$('lt');if(t.hidden){var d=new Date(Date.now()-new Date().getTimezoneOffset()*6e4);t.value=d.toISOString().slice(0,16);t.hidden=false}else t.hidden=true};
+ $('lk').onclick=function(){
+  var v=parseFloat($('lp').value);if(!(v>100&&v<400)){msg('Enter the locked price in cents, e.g. 229.9','err');return}
+  var at=Date.now();if(!$('lt').hidden&&$('lt').value)at=new Date($('lt').value).getTime();
+  if(isNaN(at)||at>Date.now()+3e5){msg('That time is in the future','err');return}
+  if(at+7*DAY<=Date.now()){msg('That lock has already expired','err');return}
+  var b=$('lk');b.disabled=true;
+  putLock(ME,v,at,false).then(function(){$('lp').value='';$('lt').hidden=true;msg('Saved ✓ — '+v.toFixed(1)+'c locked','ok');return getLocks()}).catch(function(){msg('Could not save. Check your connection and try again.','err')}).then(function(){b.disabled=false})};
+}
+function msg(t,c){var m=$('lmsg');m.textContent=t||'';m.className='msg'+(c?' '+c:'')}
+function slug(n){return n.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'')||'x'}
+function num(f){return f?Number(f.doubleValue!==undefined?f.doubleValue:f.integerValue):NaN}
+function parseLock(d){var f=d.fields||{},k={id:d.name.split('/').pop(),who:f.who&&f.who.stringValue,price:num(f.price),at:num(f.at),used:!!(f.used&&f.used.booleanValue)};return k.who&&k.price>0&&k.at>0?k:null}
+function putLock(who,price,at,used,id){
+ return fetch(LAPI+'/'+(id||slug(who))+'?key='+FB.k,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({fields:{who:{stringValue:who},price:{doubleValue:price},at:{integerValue:String(at)},used:{booleanValue:used}}})}).then(function(r){if(!r.ok)throw 0;return r.json()})}
+function getLocks(){
+ return fetch(LAPI+'?pageSize=50&key='+FB.k+'&t='+Date.now()).then(function(r){if(!r.ok)throw 0;return r.json()}).then(function(j){L=(j.documents||[]).map(parseLock).filter(Boolean);LERR=0;render()}).catch(function(){LERR=1;render()})}
 $('dk').onchange=function(){D=this.checked?1:0;try{localStorage.setItem('fp_docket',D)}catch(e){}render()};
+$('seg').onclick=function(e){var r=e.target.getAttribute&&e.target.getAttribute('data-r');if(!r)return;RG=+r;[].forEach.call($('seg').children,function(b){b.className=b.getAttribute('data-r')===r?'on':''});renderChart()};
+$('lg').onclick=function(e){var n=e.target.closest&&e.target.closest('.lgi');if(!n)return;var c=n.getAttribute('data-c');HID[c]=!HID[c];renderChart()};
+$('locks').onclick=function(e){var id=e.target.getAttribute&&e.target.getAttribute('data-used');if(!id)return;
+ var k=L.filter(function(x){return x.id===id})[0];if(!k||!confirm('Mark '+k.who+"'s lock as used?"))return;
+ putLock(k.who,k.price,k.at,true,k.id).then(getLocks).catch(function(){msg('Could not update. Try again.','err')})};
 $('share').onclick=function(){
  var r=ranked();if(!r.length){alert('No prices yet');return}
  var a=advice(),m='⛽ 91 now: '+a[1]+(a[3]!==null&&a[3]!==undefined&&Math.abs(a[3])>=1.5?' ('+(a[3]>0?'rising':'falling')+')':'')+'. ';
  r.slice(0,3).forEach(function(x,i){m+=(i+1)+') '+x.s.n+' '+x.e.toFixed(1)+'c  '});
- if(D)m+='(4c docket applied at Ampol)';
+ if(D)m+='(4c voucher applied at Ampol)';
  window.location.href='https://wa.me/?text='+encodeURIComponent(m.trim())};
 fetch('prices.json?t='+Date.now(),{cache:'no-store'}).then(function(r){if(!r.ok)throw 0;return r.json()}).then(function(j){H=(j.h||[]).filter(function(x){return x&&x.p});UPD=j.updated||null;render()}).catch(function(){render()});
-render();
+buildForm();render();getLocks();
+setInterval(getLocks,6e4);
+document.addEventListener('visibilitychange',function(){if(!document.hidden)getLocks()});
 </script></body></html>
