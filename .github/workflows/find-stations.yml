@@ -1,0 +1,38 @@
+name: Find stations
+on: workflow_dispatch
+jobs:
+  discover:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Nearby search
+        env:
+          FUEL_API_KEY: ${{ secrets.FUEL_API_KEY }}
+          FUEL_API_SECRET: ${{ secrets.FUEL_API_SECRET }}
+        run: |
+          node > out.txt <<'EOF'
+          (async () => {
+            const key = process.env.FUEL_API_KEY, secret = process.env.FUEL_API_SECRET;
+            const basic = Buffer.from(key + ':' + secret).toString('base64');
+            const tr = await fetch('https://api.onegov.nsw.gov.au/oauth/client_credential/accesstoken?grant_type=client_credentials', { headers: { Authorization: 'Basic ' + basic } });
+            if (!tr.ok) { console.log('Token error', tr.status, (await tr.text()).slice(0, 300)); return; }
+            const token = (await tr.json()).access_token;
+            const d = new Date(), p = n => String(n).padStart(2, '0');
+            const h = d.getUTCHours() % 12 || 12, ap = d.getUTCHours() < 12 ? 'AM' : 'PM';
+            const ts = `${p(d.getUTCDate())}/${p(d.getUTCMonth()+1)}/${d.getUTCFullYear()} ${p(h)}:${p(d.getUTCMinutes())}:${p(d.getUTCSeconds())} ${ap}`;
+            const r = await fetch('https://api.onegov.nsw.gov.au/FuelPriceCheck/v1/fuel/prices/nearby', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token, apikey: key, transactionid: crypto.randomUUID(), requesttimestamp: ts },
+              body: JSON.stringify({ fueltype: 'U91', namedlocation: '2145', latitude: '-33.807', longitude: '150.971', radius: '6', brand: ['SelectAll'], sortby: 'price', sortascending: 'true' })
+            });
+            if (!r.ok) { console.log('Nearby error', r.status, (await r.text()).slice(0, 300)); return; }
+            const j = await r.json();
+            const price = {}; (j.prices || []).forEach(x => price[x.stationcode] = x.price);
+            (j.stations || []).forEach(s => console.log([s.code, s.brand, s.name, s.address, price[s.code] + 'c'].join(' | ')));
+          })();
+          EOF
+      - name: Show result
+        if: always()
+        run: |
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          cat out.txt >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
