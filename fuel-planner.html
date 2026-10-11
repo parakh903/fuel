@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Fuel Planner</title>
+<style>
+:root{--bg:#f4f6f8;--card:#fff;--tx:#14181f;--mut:#667085;--ln:#e4e7ec;--ac:#0b7a4b;--wn:#b54708;--bd:#b42318;--ab:#e7f6ee;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0f1115;--card:#181b21;--tx:#eef0f3;--mut:#98a2b3;--ln:#2a2f38;--ac:#4cc38a;--wn:#f79009;--bd:#f97066;--ab:#12281e}}
+:root[data-theme="dark"]{--bg:#0f1115;--card:#181b21;--tx:#eef0f3;--mut:#98a2b3;--ln:#2a2f38;--ac:#4cc38a;--wn:#f79009;--bd:#f97066;--ab:#12281e}
+*{box-sizing:border-box}html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--tx);font:16px/1.4 -apple-system,system-ui,"Segoe UI",Roboto,sans-serif}
+main{max-width:520px;margin:0 auto;padding:16px}
+h1{font-size:20px;margin:4px 0 2px}h2{font-size:14px;margin:0 0 10px;color:var(--mut);text-transform:uppercase;letter-spacing:.04em}
+.sub{color:var(--mut);font-size:13px;margin:0 0 14px}.sub.stale{color:var(--bd)}
+.card{background:var(--card);border:1px solid var(--ln);border-radius:14px;padding:14px;margin-bottom:14px}
+.rec b{font-size:22px;display:block}.rec.go{background:var(--ab);border-color:var(--ac)}.rec.go b{color:var(--ac)}.rec.wait b{color:var(--bd)}.rec.mid b{color:var(--wn)}
+.rec p{margin:6px 0 0;font-size:14px;color:var(--mut)}
+.tr{display:inline-block;margin-top:8px;font-size:13px;font-weight:600;padding:3px 10px;border-radius:99px;border:1px solid var(--ln);color:var(--tx)}
+.tr.up{color:var(--bd);border-color:var(--bd)}.tr.dn{color:var(--ac);border-color:var(--ac)}
+.row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 0;border-top:1px solid var(--ln)}
+.row:first-of-type{border-top:0}.nm{flex:1;min-width:0}.nm small{display:block;color:var(--mut);font-size:12px}
+.pr{font-weight:700;font-size:18px;white-space:nowrap;text-align:right}.best .pr{color:var(--ac)}
+.pr small{display:block;font-size:11px;font-weight:600}.pr .u{color:var(--bd)}.pr .d{color:var(--ac)}
+label.chk{display:flex;gap:8px;align-items:center;font-size:14px;margin:8px 0 10px}
+label.chk input{width:20px;height:20px}
+button{font:inherit;font-weight:600;border:0;border-radius:12px;padding:13px;width:100%;background:var(--ac);color:#fff;margin-top:8px}
+.note{font-size:12px;color:var(--mut);margin:8px 0 0}
+svg.sp{width:100%;height:64px;display:block}
+.sp path{fill:none;stroke:var(--ac);stroke-width:2;stroke-linejoin:round;stroke-linecap:round}.sp .z{fill:var(--ab);opacity:.8}.sp circle{fill:var(--ac)}
+</style></head><body><main>
+<h1>⛽ Fuel Planner</h1>
+<p class="sub" id="stamp">Loading prices…</p>
+
+<div class="card rec" id="rec"></div>
+
+<div class="card"><h2>Cheapest now</h2><div id="rank"></div>
+<label class="chk"><input type="checkbox" id="dk"> I have a Woolworths 4c docket (Ampol Foodary only)</label>
+<button id="share">Share to WhatsApp</button></div>
+
+<div class="card" id="trend" hidden><h2>Cheapest price, last 14 days</h2><div id="spark"></div><p class="note" id="range"></p></div>
+</main>
+<script>
+var S=[
+{c:'1582',n:'APW Wentworthville',a:'449 Great Western Hwy',w:0},
+{c:'2442',n:'Ampol Foodary Wentworthville',a:'313 Great Western Hwy',w:1},
+{c:'833',n:'Ampol Foodary Pendle Hill',a:'602-606 Great Western Hwy',w:1},
+{c:'128',n:'7-Eleven Pendle Hill',a:'217 Wentworth Ave',w:0},
+{c:'1752',n:'bp Truckstop Mays Hill',a:'149 Great Western Hwy',w:0},
+{c:'20021',n:'Speedway Wentworthville',a:'57 Station St',w:0}];
+var DAY=864e5,HR=36e5,H=[],UPD=null,D=0,$=function(i){return document.getElementById(i)};
+try{D=localStorage.getItem('fp_docket')==='1'?1:0}catch(e){}
+function cheap(x){var m=1e9;for(var k in x.p)if(x.p[k]<m)m=x.p[k];return m}
+function last(){return H[H.length-1]}
+function eff(s,p){return p-(D&&s.w?4:0)}
+function ranked(){var l=last();if(!l)return[];return S.filter(function(s){return l.p[s.c]>0}).map(function(s){return{s:s,p:l.p[s.c],e:eff(s,l.p[s.c])}}).sort(function(a,b){return a.e-b.e})}
+function ago(t){var m=Math.round((Date.now()-new Date(t))/6e4);if(m<2)return'just now';if(m<90)return m+' min ago';var h=Math.round(m/60);return h<36?h+' h ago':Math.round(h/24)+' days ago'}
+function ref(h){var n=Date.now(),b=null,bd=1e18;H.forEach(function(x){var a=n-new Date(x.t);if(a>=18*HR&&a<=30*HR){var d=Math.abs(a-DAY);if(d<bd){bd=d;b=x}}});return b}
+function days(){if(!H.length)return 0;return Math.floor((new Date(H[H.length-1].t)-new Date(H[0].t))/DAY)+1}
+function trend(){var r=ref(),l=last();if(!r||!l)return null;return cheap(l)-cheap(r)}
+function trendTxt(d){if(d===null)return'';var a=Math.abs(d).toFixed(1);if(d>=1.5)return'▲ Rising +'+a+'c vs yesterday';if(d<=-1.5)return'▼ Falling −'+a+'c vs yesterday';return'► Steady vs yesterday'}
+function advice(){
+ var l=last();if(!l)return['n','Collecting data','No prices yet. The first automatic update arrives within 3 hours of setup.'];
+ var cur=cheap(l),nd=days(),t=trend();
+ if(nd<3)return['n','Collecting data','Day '+nd+' of 3 before a fill or wait call. Cheapest now: '+cur.toFixed(1)+'c/L.',t];
+ var w=H.filter(function(x){return Date.now()-new Date(x.t)<=30*DAY}).map(cheap),mn=Math.min.apply(0,w),mx=Math.max.apply(0,w),sp=mx-mn,pos=sp>0?(cur-mn)/sp:.5;
+ var tail=nd<10?' The call sharpens as history builds ('+nd+' days so far).':'';
+ var rise=t!==null&&t>=1.5,fall=t!==null&&t<=-1.5;
+ if(sp<5)return['mid','Mid-range','Prices are flat (range '+sp.toFixed(1)+'c). Fill only if you need to.'+tail,t];
+ if(pos<=.25)return['go','Fill now','Cheapest is near the bottom of the last '+nd+' days ('+mn.toFixed(1)+'–'+mx.toFixed(1)+'c).'+(fall?' Still easing, but the bottom is close.':'')+tail,t];
+ if(rise&&pos<.5)return['go','Fill now','Prices are climbing off the low. Fill before they go higher.'+tail,t];
+ if(pos>=.65)return['wait','Wait','Cheapest is near the top of its range. Prices usually ease after a peak.'+tail,t];
+ if(fall)return['wait','Wait','Mid-range and still falling. A lower price is likely soon.'+tail,t];
+ return['mid','Mid-range',(rise?'Mid-range and rising. Fill soon if you need fuel in the next few days.':'Mid-range and steady. Fill only if you need to.')+tail,t];
+}
+function spark(){
+ var cut=Date.now()-14*DAY,p=H.filter(function(x){return new Date(x.t)>=cut});
+ if(p.length<4||days()<3){$('trend').hidden=true;return}
+ var v=p.map(cheap),mn=Math.min.apply(0,v),mx=Math.max.apply(0,v),sp=Math.max(mx-mn,1),t0=new Date(p[0].t).getTime(),t1=new Date(p[p.length-1].t).getTime()||1,W=300,Hh=60,pad=6,d='',x,y;
+ p.forEach(function(q,i){x=(new Date(q.t).getTime()-t0)/Math.max(t1-t0,1)*W;y=pad+(1-(v[i]-mn)/sp)*(Hh-2*pad);d+=(i?'L':'M')+x.toFixed(1)+' '+y.toFixed(1)});
+ var zy=pad+(1-.25)*(Hh-2*pad);
+ $('spark').innerHTML='<svg class="sp" viewBox="0 0 '+W+' '+Hh+'" preserveAspectRatio="none"><rect class="z" x="0" y="'+zy.toFixed(1)+'" width="'+W+'" height="'+(Hh-pad-zy).toFixed(1)+'"/><path d="'+d+'"/></svg>';
+ $('range').textContent='Low '+mn.toFixed(1)+'c · High '+mx.toFixed(1)+'c · shaded = buy zone (bottom 25%)';
+ $('trend').hidden=false;
+}
+function render(){
+ $('dk').checked=!!D;
+ var st=$('stamp'),l=last();
+ if(UPD){var stale=Date.now()-new Date(UPD)>9*HR;st.className='sub'+(stale?' stale':'');st.textContent='Unleaded 91 · Wentworthville area · updated '+ago(UPD)+(stale?' (may be out of date)':'')}
+ else{st.className='sub';st.textContent='Unleaded 91 · Wentworthville area · no data yet'}
+ var a=advice();$('rec').className='card rec '+a[0];
+ $('rec').innerHTML='<b>'+a[1]+'</b><p>'+a[2]+'</p>'+(a[3]!==null&&a[3]!==undefined?'<span class="tr '+(a[3]>=1.5?'up':a[3]<=-1.5?'dn':'')+'">'+trendTxt(a[3])+'</span>':'');
+ var r=ranked(),h='',rf=ref();
+ if(!r.length)h='<p class="note">No prices yet.</p>';
+ r.forEach(function(x,i){
+  var ch='';if(rf&&rf.p[x.s.c]){var d=x.p-rf.p[x.s.c];if(Math.abs(d)>=0.5)ch='<small class="'+(d>0?'u':'d')+'">'+(d>0?'▲ ':'▼ ')+Math.abs(d).toFixed(1)+'</small>'}
+  h+='<div class="row'+(i?'':' best')+'"><div class="nm">'+x.s.n+'<small>'+(D&&x.s.w?x.p.toFixed(1)+' − 4c docket':x.s.a)+'</small></div><div class="pr">'+x.e.toFixed(1)+ch+'</div></div>'});
+ if(r.length>1)h+='<p class="note">Cheapest saves about $'+((r[r.length-1].e-r[0].e)*0.4).toFixed(2)+' on a 40 L fill vs the dearest of these.</p>';
+ $('rank').innerHTML=h;spark();
+}
+$('dk').onchange=function(){D=this.checked?1:0;try{localStorage.setItem('fp_docket',D)}catch(e){}render()};
+$('share').onclick=function(){
+ var r=ranked();if(!r.length){alert('No prices yet');return}
+ var a=advice(),m='⛽ 91 now: '+a[1]+(a[3]!==null&&a[3]!==undefined&&Math.abs(a[3])>=1.5?' ('+(a[3]>0?'rising':'falling')+')':'')+'. ';
+ r.slice(0,3).forEach(function(x,i){m+=(i+1)+') '+x.s.n+' '+x.e.toFixed(1)+'c  '});
+ if(D)m+='(4c docket applied at Ampol)';
+ window.location.href='https://wa.me/?text='+encodeURIComponent(m.trim())};
+fetch('prices.json?t='+Date.now(),{cache:'no-store'}).then(function(r){if(!r.ok)throw 0;return r.json()}).then(function(j){H=(j.h||[]).filter(function(x){return x&&x.p});UPD=j.updated||null;render()}).catch(function(){render()});
+render();
+</script></body></html>

@@ -1,0 +1,20 @@
+{
+  "fuelType": "U91",
+  "stations": {
+    "1582": "APW Wentworthville",
+    "2442": "Ampol Foodary Wentworthville",
+    "833": "Ampol Foodary Pendle Hill",
+    "128": "7-Eleven Pendle Hill",
+    "1752": "bp Truckstop Mays Hill",
+    "20021": "Speedway Wentworthville"
+  },
+  "keepDays": 90,
+  "alerts": {
+    "lowZone": 0.2,
+    "riseCents": 8,
+    "windowDays": 30,
+    "minDays": 5,
+    "cooldownHours": 24
+  },
+  "pageUrl": "https://parakh903.github.io/fuel/fuel-planner.html"
+}
