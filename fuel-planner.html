@@ -37,6 +37,7 @@ svg.ch{width:100%;height:auto;display:block}.ch .gl{stroke:var(--ln);stroke-widt
 </style></head><body><main>
 <h1>⛽ Fuel Planner</h1>
 <p class="sub" id="stamp">Loading prices…</p>
+<div class="card" id="bkb" hidden style="border-color:var(--wn)"><b>📦 Time for your backup</b><p class="note" id="bkt"></p><div class="lr" style="margin-top:8px"><button id="bkd">Download</button><button class="mini" id="bkn">Not now</button></div></div>
 
 <div class="card rec" id="rec"></div>
 
@@ -49,6 +50,16 @@ svg.ch{width:100%;height:auto;display:block}.ch .gl{stroke:var(--ln);stroke-widt
 <div class="card" id="trend" hidden><h2>Price history</h2>
 <div class="seg" id="seg"><button data-r="7">7d</button><button data-r="30" class="on">30d</button><button data-r="90">90d</button></div>
 <div id="chart"></div><div class="lg" id="lg"></div><p class="note">Tap a station to show or hide its line.</p></div>
+<details class="card" id="bkc"><summary style="font-weight:600;cursor:pointer;color:var(--mut);font-size:14px;text-transform:uppercase;letter-spacing:.04em">Backup &amp; restore</summary>
+<p class="note">One file with the shared 7-Eleven locks, price history and this phone's settings.</p>
+<label class="chk"><input type="checkbox" id="bke"> <span>Remind me to back up on this phone</span></label>
+<p class="who" id="bkr" hidden>Every <input class="t" id="bki" type="number" min="1" max="90" inputmode="numeric" style="display:inline-block;width:76px;padding:6px 8px"> days</p>
+<p class="note" id="bkl"></p>
+<button id="bkdl">Download backup</button>
+<button class="mini" id="bkrs" style="width:100%;padding:12px">Restore from backup file</button>
+<input type="file" id="bkf" accept=".json,application/json" hidden>
+<button class="mini" id="bkp" hidden style="width:100%;padding:12px">Save prices.json to re-upload to GitHub</button>
+<p class="msg" id="bkm"></p></details>
 </main>
 <script>
 var FB={p:'fuel-planner-758f2',k:'AIzaSyDzcx4XzPN0FQOrYpgjKsX1Y693xBPiUig'};
@@ -60,7 +71,7 @@ var S=[
 {c:'128',n:'7-Eleven Pendle Hill',sn:'7-Eleven',a:'217 Wentworth Ave',w:0,col:'#d9480f'},
 {c:'1752',n:'bp Truckstop Mays Hill',sn:'bp Mays Hill',a:'149 Great Western Hwy',w:0,col:'#c2255c'},
 {c:'20021',n:'Speedway Wentworthville',sn:'Speedway',a:'57 Station St',w:0,col:'#868e96'}];
-var DAY=864e5,HR=36e5,H=[],UPD=null,D=0,L=[],LERR=0,ME='',RG=30,HID={},$=function(i){return document.getElementById(i)};
+var RAW=null,BKP=null,DAY=864e5,HR=36e5,H=[],UPD=null,D=0,L=[],LERR=0,ME='',RG=30,HID={},$=function(i){return document.getElementById(i)};
 try{D=localStorage.getItem('fp_docket')==='1'?1:0;ME=localStorage.getItem('fp_who')||''}catch(e){}
 function cheap(x){var m=1e9;for(var k in x.p)if(x.p[k]<m)m=x.p[k];return m}
 function last(){return H[H.length-1]}
@@ -180,8 +191,57 @@ $('share').onclick=function(){
  r.slice(0,3).forEach(function(x,i){m+=(i+1)+') '+x.s.n+' '+x.e.toFixed(1)+'c  '});
  if(D)m+='(4c voucher applied at Ampol)';
  window.location.href='https://wa.me/?text='+encodeURIComponent(m.trim())};
-fetch('prices.json?t='+Date.now(),{cache:'no-store'}).then(function(r){if(!r.ok)throw 0;return r.json()}).then(function(j){H=(j.h||[]).filter(function(x){return x&&x.p});UPD=j.updated||null;render()}).catch(function(){render()});
-buildForm();render();getLocks();
+fetch('prices.json?t='+Date.now(),{cache:'no-store'}).then(function(r){if(!r.ok)throw 0;return r.json()}).then(function(j){RAW=j;H=(j.h||[]).filter(function(x){return x&&x.p});UPD=j.updated||null;render()}).catch(function(){render()});
+
+var BK={on:0,days:5,last:'',skip:''};
+try{var bj=JSON.parse(localStorage.getItem('fp_bk')||'{}');BK.on=bj.on?1:0;BK.days=bj.days>0?bj.days:5;BK.last=bj.last||'';BK.skip=bj.skip||''}catch(e){}
+function bkSave(){try{localStorage.setItem('fp_bk',JSON.stringify(BK))}catch(e){}}
+function iso(){var x=new Date();return x.getFullYear()+'-'+('0'+(x.getMonth()+1)).slice(-2)+'-'+('0'+x.getDate()).slice(-2)}
+function bkDue(){if(!BK.on||BK.skip===iso()||BK.last===iso())return false;if(!BK.last)return true;return Math.round((new Date(iso())-new Date(BK.last))/DAY)>=BK.days}
+function bkUi(){$('bkb').hidden=!bkDue();$('bkt').textContent='Reminder every '+BK.days+' days. One file saves the locks, price history and settings.';$('bke').checked=!!BK.on;$('bki').value=BK.days;$('bkr').hidden=!BK.on;$('bkl').textContent='Last backup: '+(BK.last||'never')}
+function bkMsg(t,c){var m=$('bkm');m.textContent=t||'';m.className='msg'+(c?' '+c:'');if(c==='err'&&!$('bkb').hidden)$('bkt').textContent=t}
+function dl(txt,name){try{var b=new Blob([txt],{type:'application/json'}),u=URL.createObjectURL(b),a=document.createElement('a');a.href=u;a.download=name;document.body.appendChild(a);a.click();document.body.removeChild(a);setTimeout(function(){URL.revokeObjectURL(u)},4000);return true}catch(e){return false}}
+function bkRun(){
+ var b=$('bkdl');b.disabled=true;bkMsg('');
+ fetch(LAPI+'?pageSize=100&key='+FB.k+'&t='+Date.now()).then(function(r){if(!r.ok)throw 0;return r.json()}).then(function(j){
+  if(!RAW)throw 1;
+  var locks=(j.documents||[]).map(parseLock).filter(Boolean),loc={};
+  try{['fp_who','fp_docket'].forEach(function(k){var v=localStorage.getItem(k);if(v!==null)loc[k]=v})}catch(e){}
+  loc.bk={on:BK.on,days:BK.days};
+  var out={app:'fuel-planner',version:1,exportedAt:new Date().toISOString(),locks:locks,prices:RAW,local:loc};
+  if(!dl(JSON.stringify(out),'fuel-planner-backup-'+iso()+'.json'))throw 2;
+  BK.last=iso();bkSave();bkUi();
+  bkMsg('Backup downloaded ✓ ('+locks.length+' lock'+(locks.length===1?'':'s')+', '+(RAW.h||[]).length+' price points)','ok')
+ }).catch(function(e){bkMsg(e===1?'Prices have not loaded yet. Try again in a moment.':'Could not create the backup. Check your connection and try again.','err')}).then(function(){b.disabled=false})}
+$('bkdl').onclick=bkRun;$('bkd').onclick=bkRun;
+$('bkn').onclick=function(){BK.skip=iso();bkSave();bkUi()};
+$('bke').onchange=function(){BK.on=this.checked?1:0;bkSave();bkUi()};
+$('bki').onchange=function(){var v=parseInt(this.value,10);BK.days=v>0?Math.min(v,90):5;bkSave();bkUi()};
+$('bkrs').onclick=function(){$('bkf').click()};
+$('bkp').onclick=function(){if(BKP)dl(JSON.stringify(BKP),'prices.json')};
+$('bkf').onchange=function(){
+ var f=this.files[0];this.value='';if(!f)return;
+ var rd=new FileReader();rd.onload=function(){
+  var d;try{d=JSON.parse(rd.result)}catch(e){bkMsg('That file is not valid JSON.','err');return}
+  if(!d||d.app!=='fuel-planner'||!Array.isArray(d.locks)){bkMsg('That is not a Fuel Planner backup.','err');return}
+  var ks=d.locks.filter(function(k){return k&&typeof k.who==='string'&&k.who&&k.price>0&&k.at>0}),n=ks.length;
+  if(!confirm('Restore the backup from '+String(d.exportedAt||'').slice(0,10)+'? It writes '+n+' lock'+(n===1?'':'s')+' back for the whole family (same names are overwritten, newer locks stay) and restores this phone\'s settings.'))return;
+  bkMsg('Restoring…');
+  var p=Promise.resolve();
+  ks.forEach(function(k){p=p.then(function(){return putLock(k.who,Number(k.price),Number(k.at),!!k.used,k.id||slug(k.who))})});
+  p.then(function(){
+   var lc=d.local||{};
+   try{if(lc.fp_who!==undefined){localStorage.setItem('fp_who',lc.fp_who);ME=lc.fp_who}
+    if(lc.fp_docket!==undefined){localStorage.setItem('fp_docket',lc.fp_docket);D=lc.fp_docket==='1'?1:0}}catch(e){}
+   if(lc.bk){BK.on=lc.bk.on?1:0;BK.days=lc.bk.days>0?lc.bk.days:5;bkSave()}
+   var more=d.prices&&Array.isArray(d.prices.h)&&d.prices.h.length>H.length;
+   BKP=more?d.prices:null;$('bkp').hidden=!more;
+   buildForm();render();bkUi();getLocks();
+   bkMsg('Restored '+n+' lock'+(n===1?'':'s')+' and settings ✓'+(more?' The backup has more price history than the live file. Price history lives in your GitHub repo, so tap below and upload prices.json there to bring it back.':''),'ok')
+  }).catch(function(){bkMsg('Restore failed part-way. Check your connection and try again.','err');getLocks()})};
+ rd.onerror=function(){bkMsg('Could not read that file.','err')};rd.readAsText(f)};
+document.addEventListener('visibilitychange',function(){if(!document.hidden)bkUi()});
+buildForm();render();getLocks();bkUi();
 setInterval(getLocks,6e4);
 document.addEventListener('visibilitychange',function(){if(!document.hidden)getLocks()});
 </script></body></html>
