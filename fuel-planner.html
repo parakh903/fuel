@@ -19,6 +19,7 @@ h1{font-size:20px;margin:4px 0 2px}h2{font-size:14px;margin:0 0 10px;color:var(-
 .row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 0;border-top:1px solid var(--ln)}
 .row:first-of-type{border-top:0}.nm{flex:1;min-width:0}.nm small{display:block;color:var(--mut);font-size:12px}
 .pr{font-weight:700;font-size:18px;white-space:nowrap;text-align:right}.best .pr{color:var(--ac)}
+.row .pr.hi{color:var(--bd)}.row .pr.lo{color:var(--ac)}.row .pr.eq{color:var(--tx)}
 .pr small{display:block;font-size:11px;font-weight:600}.pr .u{color:var(--bd)}.pr .d{color:var(--ac)}
 label.chk{display:flex;gap:8px;align-items:flex-start;font-size:14px;margin:8px 0 10px}
 label.chk input{width:20px;height:20px;flex:none;margin-top:1px}
@@ -127,12 +128,12 @@ function renderChart(){
  $('lg').innerHTML=h;
 }
 function renderLocks(){
- var al=activeLocks(),l=last(),pump=l&&l.p['128'],h='',n=Date.now();
+ var al=activeLocks(),l=last(),pump=l&&l.p['128'],h='',n=Date.now(),mk=ranked().filter(function(x){return !x.s.lk})[0],low=mk?Math.round(mk.e*10):null;
  if(LERR)h='<p class="note">Locks are unavailable right now (offline?). Prices above still work.</p>';
  else if(!al.length)h='<p class="note">No active locks. Add yours below after you lock a price in the 7-Eleven app.</p>';
  al.forEach(function(k,i){
   var when=new Date(k.at).toLocaleString('en-AU',{weekday:'short',day:'numeric',month:'short',hour:'numeric',minute:'2-digit'});
-  h+='<div class="row'+(i?'':' best')+'"><div class="nm">'+k.who+'<small>Locked '+when+' · '+left(k.at+7*DAY-n)+' left'+(pump&&k.price>=pump?' · pump cheaper today':'')+'</small></div><div class="pr">'+k.price.toFixed(1)+'</div><button class="mini" data-used="'+k.id+'">Used</button></div>'});
+  h+='<div class="row'+(i?'':' best')+'"><div class="nm">'+k.who+'<small>Locked '+when+' · '+left(k.at+7*DAY-n)+' left'+(pump&&k.price>=pump?' · pump cheaper today':'')+'</small></div><div class="pr'+(low===null?'':Math.round(k.price*10)>low?' hi':Math.round(k.price*10)<low?' lo':' eq')+'">'+k.price.toFixed(1)+'</div><button class="mini" data-used="'+k.id+'">Used</button></div>'});
  $('locks').innerHTML=h;
 }
 function render(){
