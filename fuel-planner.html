@@ -19,6 +19,7 @@ h1{font-size:20px;margin:4px 0 2px}h2{font-size:14px;margin:0 0 10px;color:var(-
 .row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 0;border-top:1px solid var(--ln)}
 .row:first-of-type{border-top:0}.nm{flex:1;min-width:0}.nm small{display:block;color:var(--mut);font-size:12px}
 .pr{font-weight:700;font-size:18px;white-space:nowrap;text-align:right}.best .pr{color:var(--ac)}
+.row .pr.top{background:var(--ab);border-radius:8px;padding:2px 8px;font-weight:800}
 .row .pr.hi{color:var(--bd)}.row .pr.lo{color:var(--ac)}.row .pr.eq{color:var(--tx)}
 .pr small{display:block;font-size:11px;font-weight:600}.pr .u{color:var(--bd)}.pr .d{color:var(--ac)}
 label.chk{display:flex;gap:8px;align-items:flex-start;font-size:14px;margin:8px 0 10px}
@@ -143,12 +144,14 @@ function render(){
  else{st.className='sub';st.textContent='Unleaded 91 · Wentworthville area · no data yet'}
  var r=ranked(),a=advice(),ll=lockLine(r);$('rec').className='card rec '+a[0];
  $('rec').innerHTML='<b>'+a[1]+'</b><p>'+a[2]+'</p>'+(ll?'<p class="lkp">'+ll+'</p>':'')+(a[3]!==null&&a[3]!==undefined?'<span class="tr '+(a[3]>=1.5?'up':a[3]<=-1.5?'dn':'')+'">'+trendTxt(a[3])+'</span>':'');
- var h='',rf=ref();
+ var h='',rf=ref(),al0=activeLocks()[0],LKV=al0?Math.round(al0.price*10):null,TOP=r.length?Math.round(r[0].e*10):null;
+ function pc(x){var v=Math.round(x.e*10),t=v===TOP;if(LKV===null)return t?' lo top':'';return (v<LKV?' lo':v>LKV?' hi':' eq')+(t?' top':'')}
  if(!r.length)h='<p class="note">No prices yet.</p>';
  r.forEach(function(x,i){
   var ch='';if(!x.s.lk&&rf&&rf.p[x.s.c]){var d=x.p-rf.p[x.s.c];if(Math.abs(d)>=0.5)ch='<small class="'+(d>0?'u':'d')+'">'+(d>0?'▲ ':'▼ ')+Math.abs(d).toFixed(1)+'</small>'}
   var sub=x.s.lk?'Lock · '+left(x.s.lk.at+7*DAY-Date.now())+' left':(D&&x.s.w?x.p.toFixed(1)+' − 4c voucher':x.s.a);
-  h+='<div class="row'+(i?'':' best')+'"><div class="nm">'+x.s.n+'<small>'+sub+'</small></div><div class="pr">'+x.e.toFixed(1)+ch+'</div></div>'});
+  h+='<div class="row'+(i?'':' best')+'"><div class="nm">'+x.s.n+'<small>'+sub+'</small></div><div class="pr'+pc(x)+'">'+x.e.toFixed(1)+ch+'</div></div>'});
+ if(al0&&r.length)h+='<p class="note">Colours compare with your lowest lock ('+al0.price.toFixed(1)+'c, '+al0.who+'): green cheaper, white equal, red dearer.</p>';
  if(r.length>1)h+='<p class="note">Cheapest saves about $'+((r[r.length-1].e-r[0].e)*0.4).toFixed(2)+' on a 40 L fill vs the dearest of these.</p>';
  $('rank').innerHTML=h;renderLocks();renderChart();
 }
