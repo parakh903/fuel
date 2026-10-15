@@ -34,7 +34,7 @@ a.lnk{color:var(--ac);font-size:13px;text-decoration:underline;cursor:pointer}
 .who{font-size:14px;margin:0 0 8px}
 .seg{display:flex;gap:6px;margin-bottom:8px}.seg button{width:auto;margin:0;padding:6px 14px;background:var(--bg);color:var(--tx);border:1px solid var(--ln);font-size:13px}.seg button.on{background:var(--ac);color:#fff;border-color:var(--ac)}
 svg.ch{width:100%;height:auto;display:block}.ch .gl{stroke:var(--ln);stroke-width:1}.ch .tx{fill:var(--mut);font-size:9px}.ch path{fill:none;stroke-width:1.8;stroke-linejoin:round;stroke-linecap:round}
-.lg{display:grid;grid-template-columns:1fr 1fr;gap:8px 10px;margin-top:10px}.lgi{font-size:12px;display:flex;gap:6px;align-items:center;cursor:pointer}.lgi.off{opacity:.35}.lgi i{width:10px;height:10px;border-radius:50%;flex:none}.lgi span{flex:1;min-width:0}.lgi b{font-weight:700}
+.lg{display:grid;grid-template-columns:1fr 1fr;gap:8px 10px;margin-top:10px}.lgi{touch-action:manipulation;-webkit-user-select:none;user-select:none;font-size:12px;display:flex;gap:6px;align-items:center;cursor:pointer}.lgi.off{opacity:.35}.lgi i{width:10px;height:10px;border-radius:50%;flex:none}.lgi span{flex:1;min-width:0}.lgi b{font-weight:700}
 </style></head><body><main>
 <h1>⛽ Fuel Planner</h1>
 <p class="sub" id="stamp">Loading prices…</p>
@@ -50,7 +50,7 @@ svg.ch{width:100%;height:auto;display:block}.ch .gl{stroke:var(--ln);stroke-widt
 
 <div class="card" id="trend" hidden><h2>Price history</h2>
 <div class="seg" id="seg"><button data-r="7">7d</button><button data-r="30" class="on">30d</button><button data-r="90">90d</button></div>
-<div id="chart"></div><div class="lg" id="lg"></div><p class="note">Tap a station to show or hide its line.</p></div>
+<div id="chart"></div><div class="lg" id="lg"></div><p class="note">Tap a station to show or hide its line. Double-tap to show only that one; double-tap again for all.</p></div>
 <details class="card" id="bkc"><summary style="font-weight:600;cursor:pointer;color:var(--mut);font-size:14px;text-transform:uppercase;letter-spacing:.04em">Backup &amp; restore</summary>
 <p class="note">One file with the shared 7-Eleven locks, price history and this phone's settings.</p>
 <label class="chk"><input type="checkbox" id="bke"> <span>Remind me to back up on this phone</span></label>
@@ -182,7 +182,13 @@ function getLocks(){
  return fetch(LAPI+'?pageSize=50&key='+FB.k+'&t='+Date.now()).then(function(r){if(!r.ok)throw 0;return r.json()}).then(function(j){L=(j.documents||[]).map(parseLock).filter(Boolean);LERR=0;render()}).catch(function(){LERR=1;render()})}
 $('dk').onchange=function(){D=this.checked?1:0;try{localStorage.setItem('fp_docket',D)}catch(e){}render()};
 $('seg').onclick=function(e){var r=e.target.getAttribute&&e.target.getAttribute('data-r');if(!r)return;RG=+r;[].forEach.call($('seg').children,function(b){b.className=b.getAttribute('data-r')===r?'on':''});renderChart()};
-$('lg').onclick=function(e){var n=e.target.closest&&e.target.closest('.lgi');if(!n)return;var c=n.getAttribute('data-c');HID[c]=!HID[c];renderChart()};
+var LT=0,LC=null,SNAP={};
+$('lg').onclick=function(e){var n=e.target.closest&&e.target.closest('.lgi');if(!n)return;var c=n.getAttribute('data-c'),t=Date.now();
+ if(LC===c&&t-LT<350){HID=SNAP;LC=null;
+  var solo=!HID[c]&&S.every(function(s){return s.c===c||HID[s.c]});
+  HID={};if(!solo)S.forEach(function(s){if(s.c!==c)HID[s.c]=true});
+  renderChart();return}
+ SNAP=JSON.parse(JSON.stringify(HID));LC=c;LT=t;HID[c]=!HID[c];renderChart()};
 $('locks').onclick=function(e){var id=e.target.getAttribute&&e.target.getAttribute('data-used');if(!id)return;
  var k=L.filter(function(x){return x.id===id})[0];if(!k||!confirm('Mark '+k.who+"'s lock as used?"))return;
  putLock(k.who,k.price,k.at,true,k.id).then(getLocks).catch(function(){msg('Could not update. Try again.','err')})};
