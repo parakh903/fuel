@@ -48,12 +48,18 @@ svg.ch{width:100%;height:auto;display:block}.ch .gl{stroke:var(--ln);stroke-widt
 <button id="share">Share to WhatsApp</button></div>
 
 <div class="card"><h2>7-Eleven locks</h2><div id="locks"></div><div id="lf"></div><p class="msg" id="lmsg"></p></div>
+<div class="card" id="mc"><h2>Mileage</h2><div id="msum"></div>
+<p class="note">Fill to full, then enter the odometer and the litres you put in. Mileage is worked out between full tanks.</p>
+<div class="lr" style="margin-top:10px"><input class="t" id="mo" type="number" inputmode="numeric" placeholder="Odometer, km"><input class="t" id="ml" type="number" step="0.01" inputmode="decimal" placeholder="Litres"></div>
+<div class="lr" style="margin-top:8px"><input class="t" id="md" type="date" style="min-width:0;flex:1"><button id="ma" style="white-space:nowrap">Add fill-up</button></div>
+<p class="who" id="mcx" hidden style="margin:8px 0 0"><span id="mcxt"></span> · <a class="lnk" id="mcn">Cancel</a></p>
+<p class="msg" id="mmsg"></p><div id="mlist"></div></div>
 
 <div class="card" id="trend" hidden><h2>Price history</h2>
 <div class="seg" id="seg"><button data-r="7">7d</button><button data-r="30" class="on">30d</button><button data-r="90">90d</button></div>
 <div id="chart"></div><div class="lg" id="lg"></div><p class="note">Tap a station to show or hide its line. Double-tap to show only that one; double-tap again for all.</p></div>
 <details class="card" id="bkc"><summary style="font-weight:600;cursor:pointer;color:var(--mut);font-size:14px;text-transform:uppercase;letter-spacing:.04em">Backup &amp; restore</summary>
-<p class="note">One file with the shared 7-Eleven locks, price history and this phone's settings.</p>
+<p class="note">One file with the shared 7-Eleven locks, fill-up log, price history and this phone's settings.</p>
 <label class="chk"><input type="checkbox" id="bke"> <span>Remind me to back up on this phone</span></label>
 <p class="who" id="bkr" hidden>Every <input class="t" id="bki" type="number" min="1" max="90" inputmode="numeric" style="display:inline-block;width:76px;padding:6px 8px"> days</p>
 <p class="note" id="bkl"></p>
@@ -207,7 +213,7 @@ try{var bj=JSON.parse(localStorage.getItem('fp_bk')||'{}');BK.on=bj.on?1:0;BK.da
 function bkSave(){try{localStorage.setItem('fp_bk',JSON.stringify(BK))}catch(e){}}
 function iso(){var x=new Date();return x.getFullYear()+'-'+('0'+(x.getMonth()+1)).slice(-2)+'-'+('0'+x.getDate()).slice(-2)}
 function bkDue(){if(!BK.on||BK.skip===iso()||BK.last===iso())return false;if(!BK.last)return true;return Math.round((new Date(iso())-new Date(BK.last))/DAY)>=BK.days}
-function bkUi(){$('bkb').hidden=!bkDue();$('bkt').textContent='Reminder every '+BK.days+' days. One file saves the locks, price history and settings.';$('bke').checked=!!BK.on;$('bki').value=BK.days;$('bkr').hidden=!BK.on;$('bkl').textContent='Last backup: '+(BK.last||'never')}
+function bkUi(){$('bkb').hidden=!bkDue();$('bkt').textContent='Reminder every '+BK.days+' days. One file saves the locks, fill-up log, price history and settings.';$('bke').checked=!!BK.on;$('bki').value=BK.days;$('bkr').hidden=!BK.on;$('bkl').textContent='Last backup: '+(BK.last||'never')}
 function bkMsg(t,c){var m=$('bkm');m.textContent=t||'';m.className='msg'+(c?' '+c:'');if(c==='err'&&!$('bkb').hidden)$('bkt').textContent=t}
 function dl(txt,name){try{var b=new Blob([txt],{type:'application/json'}),u=URL.createObjectURL(b),a=document.createElement('a');a.href=u;a.download=name;document.body.appendChild(a);a.click();document.body.removeChild(a);setTimeout(function(){URL.revokeObjectURL(u)},4000);return true}catch(e){return false}}
 function bkRun(){
@@ -215,12 +221,14 @@ function bkRun(){
  fetch(LAPI+'?pageSize=100&key='+FB.k+'&t='+Date.now()).then(function(r){if(!r.ok)throw 0;return r.json()}).then(function(j){
   if(!RAW)throw 1;
   var locks=(j.documents||[]).map(parseLock).filter(Boolean),loc={};
+  return fetch(FAPI+'?pageSize=300&key='+FB.k+'&t='+Date.now()).then(function(r){if(!r.ok)throw 0;return r.json()}).then(function(fj){return (fj.documents||[]).map(parseFill).filter(Boolean)}).catch(function(){return null}).then(function(fills){
   try{['fp_who','fp_docket'].forEach(function(k){var v=localStorage.getItem(k);if(v!==null)loc[k]=v})}catch(e){}
   loc.bk={on:BK.on,days:BK.days};
   var out={app:'fuel-planner',version:1,exportedAt:new Date().toISOString(),locks:locks,prices:RAW,local:loc};
+  if(fills)out.fills=fills;
   if(!dl(JSON.stringify(out),'fuel-planner-backup-'+iso()+'.json'))throw 2;
   BK.last=iso();bkSave();bkUi();
-  bkMsg('Backup downloaded ✓ ('+locks.length+' lock'+(locks.length===1?'':'s')+', '+(RAW.h||[]).length+' price points)','ok')
+  bkMsg('Backup downloaded ✓ ('+locks.length+' lock'+(locks.length===1?'':'s')+', '+(fills?fills.length+' fill-up'+(fills.length===1?'':'s'):'no fill-up log')+', '+(RAW.h||[]).length+' price points)'+(fills?'':' The fill-up log could not be read, so it is not in this file.'),fills?'ok':'err')})
  }).catch(function(e){bkMsg(e===1?'Prices have not loaded yet. Try again in a moment.':'Could not create the backup. Check your connection and try again.','err')}).then(function(){b.disabled=false})}
 $('bkdl').onclick=bkRun;$('bkd').onclick=bkRun;
 $('bkn').onclick=function(){BK.skip=iso();bkSave();bkUi()};
@@ -233,11 +241,12 @@ $('bkf').onchange=function(){
  var rd=new FileReader();rd.onload=function(){
   var d;try{d=JSON.parse(rd.result)}catch(e){bkMsg('That file is not valid JSON.','err');return}
   if(!d||d.app!=='fuel-planner'||!Array.isArray(d.locks)){bkMsg('That is not a Fuel Planner backup.','err');return}
-  var ks=d.locks.filter(function(k){return k&&typeof k.who==='string'&&k.who&&k.price>0&&k.at>0}),n=ks.length;
-  if(!confirm('Restore the backup from '+String(d.exportedAt||'').slice(0,10)+'? It writes '+n+' lock'+(n===1?'':'s')+' back for the whole family (same names are overwritten, newer locks stay) and restores this phone\'s settings.'))return;
+  var ks=d.locks.filter(function(k){return k&&typeof k.who==='string'&&k.who&&k.price>0&&k.at>0}),n=ks.length,fs=(Array.isArray(d.fills)?d.fills:[]).filter(function(k){return k&&typeof k.id==='string'&&k.id&&/^\d{4}-\d\d-\d\d$/.test(k.date||'')&&k.odo>0&&k.litres>0}),nf2=fs.length;
+  if(!confirm('Restore the backup from '+String(d.exportedAt||'').slice(0,10)+'? It writes '+n+' lock'+(n===1?'':'s')+(nf2?' and '+nf2+' fill-up'+(nf2===1?'':'s'):'')+' back for the whole family (same names and fill-ups are overwritten, newer ones stay) and restores this phone\'s settings.'))return;
   bkMsg('Restoring…');
   var p=Promise.resolve();
   ks.forEach(function(k){p=p.then(function(){return putLock(k.who,Number(k.price),Number(k.at),!!k.used,k.id||slug(k.who))})});
+  fs.forEach(function(k){p=p.then(function(){return putFill({id:k.id,who:String(k.who||''),date:k.date,odo:Number(k.odo),litres:Number(k.litres),at:Number(k.at)||Date.now()})})});
   p.then(function(){
    var lc=d.local||{};
    try{if(lc.fp_who!==undefined){localStorage.setItem('fp_who',lc.fp_who);ME=lc.fp_who}
@@ -245,12 +254,70 @@ $('bkf').onchange=function(){
    if(lc.bk){BK.on=lc.bk.on?1:0;BK.days=lc.bk.days>0?lc.bk.days:5;bkSave()}
    var more=d.prices&&Array.isArray(d.prices.h)&&d.prices.h.length>H.length;
    BKP=more?d.prices:null;$('bkp').hidden=!more;
-   buildForm();render();bkUi();getLocks();
-   bkMsg('Restored '+n+' lock'+(n===1?'':'s')+' and settings ✓'+(more?' The backup has more price history than the live file. Price history lives in your GitHub repo, so tap below and upload prices.json there to bring it back.':''),'ok')
+   buildForm();render();bkUi();getLocks();getFills();
+   bkMsg('Restored '+n+' lock'+(n===1?'':'s')+(nf2?', '+nf2+' fill-up'+(nf2===1?'':'s'):'')+' and settings ✓'+(more?' The backup has more price history than the live file. Price history lives in your GitHub repo, so tap below and upload prices.json there to bring it back.':''),'ok')
   }).catch(function(){bkMsg('Restore failed part-way. Check your connection and try again.','err');getLocks()})};
  rd.onerror=function(){bkMsg('Could not read that file.','err')};rd.readAsText(f)};
 document.addEventListener('visibilitychange',function(){if(!document.hidden)bkUi()});
-buildForm();render();getLocks();bkUi();
-setInterval(getLocks,6e4);
-document.addEventListener('visibilitychange',function(){if(!document.hidden)getLocks()});
+
+var FAPI='https://firestore.googleapis.com/v1/projects/'+FB.p+'/databases/(default)/documents/fills',F=[],FERR=0,MALL=0,EDIT=null;
+function he(t){return String(t).replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})}
+function nf(n){return Math.round(n).toLocaleString('en-AU')}
+function parseFill(d){var f=d.fields||{},k={id:d.name.split('/').pop(),who:(f.who&&f.who.stringValue)||'',date:f.date&&f.date.stringValue,odo:num(f.odo),litres:num(f.litres),at:num(f.at)};return /^\d{4}-\d\d-\d\d$/.test(k.date||'')&&k.odo>0&&k.litres>0?k:null}
+function putFill(k){return fetch(FAPI+'/'+k.id+'?key='+FB.k,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({fields:{who:{stringValue:k.who||''},date:{stringValue:k.date},odo:{doubleValue:k.odo},litres:{doubleValue:k.litres},at:{integerValue:String(k.at||Date.now())}}})}).then(function(r){if(!r.ok)throw 0;return r.json()})}
+function getFills(){return fetch(FAPI+'?pageSize=300&key='+FB.k+'&t='+Date.now()).then(function(r){if(!r.ok)throw 0;return r.json()}).then(function(j){F=(j.documents||[]).map(parseFill).filter(Boolean).sort(function(a,b){return a.odo-b.odo});FERR=0;renderMil()}).catch(function(){FERR=1;renderMil()})}
+function milData(){var o=[],i,km;for(i=1;i<F.length;i++){km=F[i].odo-F[i-1].odo;if(km>0)o.push({f:F[i],km:km,l:F[i].litres/km*100,k:km/F[i].litres})}return o}
+function mrow(a,b,l,k){return '<div class="row"><div class="nm">'+a+'<small>'+b+'</small></div><div class="pr">'+l.toFixed(1)+'<small>L/100 km · '+k.toFixed(1)+' km/L</small></div></div>'}
+function fdt(t){var a=t.split('-'),d=new Date(+a[0],a[1]-1,+a[2]),o={day:'numeric',month:'short'};if(d.getFullYear()!==new Date().getFullYear())o.year='numeric';return d.toLocaleDateString('en-AU',o)}
+function mmsg(t,c){var m=$('mmsg');m.textContent=t||'';m.className='msg'+(c?' '+c:'')}
+function renderMil(){
+ if(FERR){$('msum').innerHTML='<p class="msg err">Could not load the fill-up log. If this is the first time, the shared log needs a one-time Firebase rules update.</p>';$('mlist').innerHTML='';return}
+ var o=milData(),km=0,lt=0,s='',by={};
+ o.forEach(function(x){km+=x.km;lt+=x.f.litres;by[x.f.id]=x});
+ if(!F.length)s='<p class="note" style="margin:0 0 4px">No fill-ups yet. Fill to full, then add the odometer and litres below. That sets the starting point.</p>';
+ else if(!o.length)s='<p class="note" style="margin:0 0 4px">Starting point set at '+nf(F[0].odo)+' km. After your next full-tank fill-up, mileage shows here.</p>';
+ else{var la=o[o.length-1];s=mrow('Latest','last '+nf(la.km)+' km',la.l,la.k)+mrow('Average','all '+nf(km)+' km',lt/km*100,km/lt)}
+ $('msum').innerHTML=s;
+ var a=F.slice().reverse(),n=MALL?a.length:Math.min(6,a.length),h='';
+ a.slice(0,n).forEach(function(k){var m=by[k.id];
+  h+='<div class="row"><div class="nm">'+fdt(k.date)+' · '+nf(k.odo)+' km<small>'+k.litres.toFixed(1)+' L'+(k.who?' · '+he(k.who):'')+'</small></div><div class="pr">'+(m?m.l.toFixed(1)+'<small>'+m.k.toFixed(1)+' km/L</small>':'<small>start</small>')+'</div><button class="mini" data-fe="'+he(k.id)+'" title="Edit">✎</button><button class="mini" data-fd="'+he(k.id)+'" title="Delete">✕</button></div>'});
+ if(a.length>6)h+='<p class="who" style="margin:8px 0 0"><a class="lnk" id="mall">'+(MALL?'Show fewer':'Show all '+a.length)+'</a></p>';
+ $('mlist').innerHTML=h}
+$('mlist').onclick=function(e){var t=e.target;
+ if(t.id==='mall'){MALL=MALL?0:1;renderMil();return}
+ var fe=t.getAttribute&&t.getAttribute('data-fe');
+ if(fe){var q=F.filter(function(x){return x.id===fe})[0];if(!q)return;
+  EDIT=q.id;$('mo').value=q.odo;$('ml').value=q.litres;$('md').value=q.date;$('ma').textContent='Save changes';
+  $('mcxt').textContent='Editing the fill-up at '+nf(q.odo)+' km';$('mcx').hidden=false;mmsg('');
+  try{$('mo').scrollIntoView({block:'center',behavior:'smooth'})}catch(e){}return}
+ var id=t.getAttribute&&t.getAttribute('data-fd');if(!id)return;
+ var k=F.filter(function(x){return x.id===id})[0];if(!k||!confirm('Delete the fill-up at '+nf(k.odo)+' km?'))return;
+ fetch(FAPI+'/'+k.id+'?key='+FB.k,{method:'DELETE'}).then(function(r){if(!r.ok)throw 0}).then(function(){if(EDIT===k.id)mReset();return getFills()}).catch(function(){mmsg('Could not delete. Try again.','err')})};
+function mReset(){EDIT=null;$('ma').textContent='Add fill-up';$('mcx').hidden=true;$('mo').value='';$('ml').value='';$('md').value=iso()}
+$('mcn').onclick=function(){mReset();mmsg('')};
+$('ma').onclick=function(){
+ var odo=Math.round(parseFloat($('mo').value)),lt=Math.round(parseFloat($('ml').value)*100)/100,dt=$('md').value||iso(),
+  cur=EDIT?F.filter(function(x){return x.id===EDIT})[0]:null,
+  oth=F.filter(function(x){return x.id!==EDIT}),last=oth.length?oth[oth.length-1]:null;
+ if(EDIT&&!cur){mReset();mmsg('That entry no longer exists','err');return}
+ if(!(odo>0&&odo<2e6)){mmsg('Enter the odometer reading in km','err');return}
+ if(!(lt>=1&&lt<=150)){mmsg('Enter the litres you put in, e.g. 38.4','err');return}
+ if(!/^\d{4}-\d\d-\d\d$/.test(dt)||dt>iso()){mmsg('Pick today or an earlier date','err');return}
+ if(!EDIT&&last&&odo<=last.odo){mmsg('Odometer must be higher than your last entry ('+nf(last.odo)+' km)','err');return}
+ if(EDIT&&oth.some(function(x){return x.odo===odo})){mmsg('Another entry already has that odometer','err');return}
+ var pv=null,nx=null;oth.forEach(function(x){if(x.odo<odo)pv=x;else if(x.odo>odo&&!nx)nx=x});
+ var km=pv?odo-pv.odo:0,l100=pv?lt/km*100:null,nl=nx?nx.litres/(nx.odo-odo)*100:null,
+  bad=function(v){return v!==null&&(v>20||v<3)},w=[];
+ if(bad(l100))w.push('This fill-up works out to '+l100.toFixed(1)+' L/100 km.');
+ if(bad(nl))w.push('The next fill-up would then show '+nl.toFixed(1)+' L/100 km.');
+ if(w.length&&!confirm(w.join(' ')+' Save anyway?'))return;
+ var b=$('ma'),ed=EDIT;b.disabled=true;
+ putFill({id:ed||'f'+Date.now().toString(36)+Math.random().toString(36).slice(2,5),who:ed?cur.who:ME,date:dt,odo:odo,litres:lt,at:ed?cur.at:Date.now()}).then(function(){
+  mReset();
+  mmsg('Saved ✓'+(ed?' changes':'')+(l100!==null?' — '+l100.toFixed(1)+' L/100 km ('+(km/lt).toFixed(1)+' km/L)':(ed?'':' — starting point set')),'ok');return getFills()
+ }).catch(function(){mmsg('Could not save. Check your connection and try again.','err')}).then(function(){b.disabled=false})};
+$('md').value=iso();
+buildForm();render();getLocks();getFills();bkUi();
+setInterval(getLocks,6e4);setInterval(getFills,3e5);
+document.addEventListener('visibilitychange',function(){if(!document.hidden){getLocks();getFills();if(!$('mo').value&&!$('ml').value)$('md').value=iso()}});
 </script></body></html>
