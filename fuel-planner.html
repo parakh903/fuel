@@ -266,8 +266,10 @@ function nf(n){return Math.round(n).toLocaleString('en-AU')}
 function parseFill(d){var f=d.fields||{},k={id:d.name.split('/').pop(),who:(f.who&&f.who.stringValue)||'',date:f.date&&f.date.stringValue,odo:num(f.odo),litres:num(f.litres),at:num(f.at)};return /^\d{4}-\d\d-\d\d$/.test(k.date||'')&&k.odo>0&&k.litres>0?k:null}
 function putFill(k){return fetch(FAPI+'/'+k.id+'?key='+FB.k,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({fields:{who:{stringValue:k.who||''},date:{stringValue:k.date},odo:{doubleValue:k.odo},litres:{doubleValue:k.litres},at:{integerValue:String(k.at||Date.now())}}})}).then(function(r){if(!r.ok)throw 0;return r.json()})}
 function getFills(){return fetch(FAPI+'?pageSize=300&key='+FB.k+'&t='+Date.now()).then(function(r){if(!r.ok)throw 0;return r.json()}).then(function(j){F=(j.documents||[]).map(parseFill).filter(Boolean).sort(function(a,b){return a.odo-b.odo});FERR=0;renderMil()}).catch(function(){FERR=1;renderMil()})}
-function milData(){var o=[],i,km;for(i=1;i<F.length;i++){km=F[i].odo-F[i-1].odo;if(km>0)o.push({f:F[i],km:km,l:F[i].litres/km*100,k:km/F[i].litres})}return o}
+function dn(t){var a=t.split('-');return Date.UTC(+a[0],a[1]-1,+a[2])/864e5}
+function milData(){var o=[],i,km;for(i=1;i<F.length;i++){km=F[i].odo-F[i-1].odo;if(km>0)o.push({f:F[i],km:km,d:Math.round(dn(F[i].date)-dn(F[i-1].date)),l:F[i].litres/km*100,k:km/F[i].litres})}return o}
 function mrow(a,b,l,k){return '<div class="row"><div class="nm">'+a+'<small>'+b+'</small></div><div class="pr">'+k.toFixed(1)+'<small>km/L · '+l.toFixed(1)+' L/100 km</small></div></div>'}
+function srow(a,b,big,sm,st){return '<div class="row"><div class="nm">'+a+'<small>'+b+'</small></div><div class="pr"'+(st?' style="'+st+'"':'')+'>'+big+'<small>'+sm+'</small></div></div>'}
 function fdt(t){var a=t.split('-'),d=new Date(+a[0],a[1]-1,+a[2]),o={day:'numeric',month:'short'};if(d.getFullYear()!==new Date().getFullYear())o.year='numeric';return d.toLocaleDateString('en-AU',o)}
 function mmsg(t,c){var m=$('mmsg');m.textContent=t||'';m.className='msg'+(c?' '+c:'')}
 function renderMil(){
@@ -276,11 +278,17 @@ function renderMil(){
  o.forEach(function(x){km+=x.km;lt+=x.f.litres;by[x.f.id]=x});
  if(!F.length)s='<p class="note" style="margin:0 0 4px">No fill-ups yet. Fill to full, then add the odometer and litres below. That sets the starting point.</p>';
  else if(!o.length)s='<p class="note" style="margin:0 0 4px">Starting point set at '+nf(F[0].odo)+' km. After your next full-tank fill-up, mileage shows here.</p>';
- else{var la=o[o.length-1];s=mrow('Latest','last '+nf(la.km)+' km',la.l,la.k)+mrow('Average','all '+nf(km)+' km',lt/km*100,km/lt)}
+ else{var la=o[o.length-1];s=mrow('Latest','last '+nf(la.km)+' km',la.l,la.k)+mrow('Average','all '+nf(km)+' km',lt/km*100,km/lt);
+  var dv=o.filter(function(x){return x.d>0}),dk=0,dd=0;dv.forEach(function(x){dk+=x.km;dd+=x.d});
+  if(dv.length)s+=srow('Driving','over '+dv.length+' fill-up'+(dv.length===1?'':'s'),(dk/dd).toFixed(0),'km/day · every '+(dd/dv.length).toFixed(1)+' days · '+nf(dk/dv.length)+' km');
+  if(o.length>=5){var rc=o.slice(-3),er=o.slice(0,-3),rk=0,rl=0,ek=0,el=0;rc.forEach(function(x){rk+=x.km;rl+=x.f.litres});er.forEach(function(x){ek+=x.km;el+=x.f.litres});
+   var rv=rk/rl,ev=ek/el,pc=(rv-ev)/ev*100,ap=Math.abs(pc);
+   s+=srow('Trend','last 3 vs earlier',ap<3?'Steady':(pc>0?'▲ ':'▼ ')+ap.toFixed(0)+'%',rv.toFixed(1)+' vs '+ev.toFixed(1)+' km/L',ap<3?'':'color:var(--'+(pc>0?'ac':'bd')+')')}
+  else s+='<p class="note" style="margin:6px 0 0">Mileage trend appears after 5 fill-ups with mileage.</p>'}
  $('msum').innerHTML=s;
  var a=F.slice().reverse(),n=MALL?a.length:Math.min(6,a.length),h='';
  a.slice(0,n).forEach(function(k){var m=by[k.id];
-  h+='<div class="row"><div class="nm">'+fdt(k.date)+' · <span style="white-space:nowrap">'+nf(k.odo)+' km</span><small>'+k.litres.toFixed(1)+' L'+(k.who?' · '+he(k.who):'')+'</small></div><div class="pr">'+(m?m.k.toFixed(1)+'<small>km/L · '+m.l.toFixed(1)+' L/100</small>':'<small>start</small>')+'</div><button class="mini" data-fe="'+he(k.id)+'" title="Edit">✎</button><button class="mini" data-fd="'+he(k.id)+'" title="Delete">✕</button></div>'});
+  h+='<div class="row"><div class="nm">'+fdt(k.date)+' · <span style="white-space:nowrap">'+nf(k.odo)+' km</span><small>'+(m?nf(m.km)+' km'+(m.d>0?' · '+m.d+(m.d===1?' day':' days'):'')+' · ':'')+k.litres.toFixed(1)+' L'+(k.who?' · '+he(k.who):'')+'</small></div><div class="pr">'+(m?m.k.toFixed(1)+'<small>km/L · '+m.l.toFixed(1)+' L/100</small>':'<small>start</small>')+'</div><div style="display:flex;flex-direction:column;gap:4px"><button class="mini" data-fe="'+he(k.id)+'" title="Edit">✎</button><button class="mini" data-fd="'+he(k.id)+'" title="Delete">✕</button></div></div>'});
  if(a.length>6)h+='<p class="who" style="margin:8px 0 0"><a class="lnk" id="mall">'+(MALL?'Show fewer':'Show all '+a.length)+'</a></p>';
  $('mlist').innerHTML=h}
 $('mlist').onclick=function(e){var t=e.target;
